@@ -31,6 +31,7 @@ func main() {
 	db.DB.AutoMigrate(&models.User{}, &models.Post{})
 	db.DB.AutoMigrate(&models.Follow{})
 	db.DB.AutoMigrate(&models.Vote{})
+	db.DB.AutoMigrate(&models.Comment{})
 
 
 
@@ -69,6 +70,15 @@ func main() {
 	vote := app.Group("/votes", middleware.RequireAuth)
 	vote.Post("/:id", handlers.VotePost)
 	vote.Get("/:id/score", handlers.GetVoteScore)
+
+	// Protected routes - comment group with JWT middleware
+	comment := app.Group("/posts/:id/comments", middleware.RequireAuth)
+
+comment.Post("/", handlers.CreateComment)
+comment.Get("/", handlers.GetComments)
+comment.Patch("/:commentId", handlers.UpdateComment)
+comment.Delete("/:commentId", handlers.DeleteComment)
+
 
 
 	// Start server
