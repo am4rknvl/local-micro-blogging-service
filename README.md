@@ -1,2 +1,56 @@
 # local-micro-blogging-service
-this a small prject just to get my hands dirty using go and just to fulfill my dream starting my own reddit+threads app locally
+# 📝 Microblogly — Minimalist Microblogging Platform
+
+A fast, Go-powered microblogging and social networking service built from scratch.  
+Think of it as a lean, hacker-friendly Twitter clone with core features, scalable backend, and full ownership.
+
+---
+
+## 🚀 Features (WIP)
+
+- ✅ **User Authentication**
+  - Signup / Login / Logout
+  - Password hashing and session management
+- 🔐 **JWT-based Auth Middleware**
+- 🧠 **User Profiles**
+  - Avatar, bio, update profile info
+- 📝 **Posts (aka Microblogs)**
+  - Create, delete, like, reply
+- 📍 **User Interactions**
+  - Follow / unfollow
+  - Block users
+- 🔔 **Notifications System**
+- 📡 **Feed Algorithm**
+  - Show posts from followed users + explore
+- 💬 **Real-time Messaging** *(Upcoming)*
+- 🧰 Built with clean architecture & RESTful APIs
+
+---
+
+## 🛠️ Tech Stack
+
+- **Backend:** Go (Golang)
+- **Router:** Gorilla Mux
+- **Database:** PostgreSQL
+- **Auth:** JWT, bcrypt
+- **ORM:** Raw SQL / pgx (or GORM if you used it)
+- **Hosting:** Railway / Fly.io / Render (WIP)
+- **Frontend:** Not yet — API only
+
+---
+
+## 🧑‍💻 Getting Started
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/yourusername/microblogly.git
+cd microblogly
+
+# 2. Setup .env
+cp .env.example .env  # Fill in your DB_URL and JWT_SECRET
+
+# 3. Run DB (if using Docker)
+docker-compose up -d
+
+# 4. Run the server
+go run main.go
