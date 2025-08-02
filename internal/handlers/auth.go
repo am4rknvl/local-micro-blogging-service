@@ -61,10 +61,6 @@ func Login(c *fiber.Ctx) error {
 		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
 
-	if user.Blocked {
-		return c.Status(403).JSON(fiber.Map{"error": "User is blocked"})
-	}
-
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.Password)); err != nil {
 		return c.Status(401).JSON(fiber.Map{"error": "Invalid credentials"})
 	}
@@ -107,7 +103,7 @@ func BlockUser(c *fiber.Ctx) error {
 		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
 	}
 
-	user.Blocked = input.Block
+
 
 	if err := db.DB.Save(&user).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Could not update user"})
@@ -139,7 +135,7 @@ func RequestPasswordReset(c *fiber.Ctx) error {
 	token := uuid.New().String()
 	resetTokens[req.Email] = token
 
-	// In real app: send email with token here
+	
 	// For MVP: just return token in response
 	return c.JSON(fiber.Map{"reset_token": token})
 }

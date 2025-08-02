@@ -29,6 +29,8 @@ func main() {
 
 	// Auto migrate User and Post models
 	db.DB.AutoMigrate(&models.User{}, &models.Post{})
+	db.DB.AutoMigrate(&models.Follow{})
+
 
 	// Public routes
 	app.Post("/signup", handlers.Signup)
@@ -48,6 +50,18 @@ func main() {
 	post.Put("/:id", handlers.UpdatePost)
 	post.Patch("/:id", handlers.PatchPost)
 	post.Delete("/:id", handlers.DeletePost)
+
+	// Protected routes - profile group with JWT middleware
+	profile := app.Group("/profile", middleware.RequireAuth)
+	profile.Get("/:id", handlers.GetProfile)
+	profile.Put("/:id", handlers.UpdateProfile)
+
+	// Protected routes - follow group with JWT middleware
+	follow := app.Group("/follow", middleware.RequireAuth)
+	follow.Post("/:id", handlers.FollowUser)
+	follow.Delete("/:id", handlers.UnfollowUser)
+	follow.Get("/followers/:id", handlers.GetFollowers)
+	follow.Get("/following/:id", handlers.GetFollowing)
 
 	// Start server
 	log.Fatal(app.Listen(":3000"))
