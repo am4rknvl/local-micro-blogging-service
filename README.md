@@ -35,7 +35,7 @@ Think of it as a lean, hacker-friendly Twitter clone with core features, scalabl
 - **Auth:** JWT, bcrypt
 - **ORM:** Raw SQL / pgx (or GORM if you used it)
 - **Hosting:** Railway / Fly.io / Render (WIP)
-- **Frontend:** Not yet — API only
+- **Frontend:**  (the mvp is built with expo/reactnative but since the project is built with Go im considering using flutter)
 
 ---
 
