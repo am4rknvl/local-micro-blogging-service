@@ -22,7 +22,12 @@ func main() {
 	app.Post("/request-reset", handlers.RequestPasswordReset)
 	app.Post("/reset-password", handlers.ResetPassword)
 
-
+	app.Post("/posts", handlers.CreatePost)
+	app.Get("/posts", handlers.GetPosts)
+	app.Get("/posts/:id", handlers.GetPost)
+	app.Put("/posts/:id", handlers.UpdatePost)
+	app.Patch("/posts/:id", handlers.PatchPost)
+	app.Delete("/posts/:id", handlers.DeletePost)
 
 
 	app.Listen(":3000")

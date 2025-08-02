@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/am4rknvl/local-micro-blogging-service.git/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -17,5 +18,9 @@ func Connect() {
 		log.Fatal("Failed to connect to DB: ", err)
 	}
 	DB = db
+
+	// Auto-migrate the database schema
+	DB.AutoMigrate(&models.Post{})
+
 	fmt.Println("Connected to microblog!")
 }

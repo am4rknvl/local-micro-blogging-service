@@ -210,3 +210,89 @@ func UploadAvatar(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{"message": "Avatar uploaded", "path": savePath})
 }
+
+
+func GetCurrentUser(c *fiber.Ctx) error {
+	userToken := c.Locals("user").(*jwt.Token)
+	claims := userToken.Claims.(jwt.MapClaims)
+	userID := claims["user_id"].(string)
+
+	var user models.User
+	if err := db.DB.First(&user, "id = ?", userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Don’t send password
+	user.Password = ""
+	return c.JSON(user)
+}
+
+func UpdateUser(c *fiber.Ctx) error {
+	userID := c.Params("id")
+
+	var user models.User
+	if err := db.DB.First(&user, "id = ?", userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	var updates map[string]interface{}
+	if err := c.BodyParser(&updates); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	// Block password update this way for security
+	delete(updates, "password")
+
+	if err := db.DB.Model(&user).Updates(updates).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Could not update user"})
+	}
+
+	return c.JSON(user)
+}
+
+
+func DeleteUser(c *fiber.Ctx) error {
+	id := c.Params("id")
+
+	if err := db.DB.Delete(&models.User{}, "id = ?", id).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Could not delete user"})
+	}
+
+	return c.JSON(fiber.Map{"message": "User deleted"})
+}
+
+
+func UpdatePassword(c *fiber.Ctx) error {
+	userID := c.Params("id")
+
+	type Input struct {
+		OldPassword string `json:"old_password"`
+		NewPassword string `json:"new_password"`
+	}
+
+	var input Input
+	if err := c.BodyParser(&input); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	}
+
+	var user models.User
+	if err := db.DB.First(&user, "id = ?", userID).Error; err != nil {
+		return c.Status(404).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(input.OldPassword)); err != nil {
+		return c.Status(401).JSON(fiber.Map{"error": "Old password is incorrect"})
+	}
+
+	hashed, err := bcrypt.GenerateFromPassword([]byte(input.NewPassword), 14)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to hash new password"})
+	}
+
+	user.Password = string(hashed)
+	if err := db.DB.Save(&user).Error; err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Could not update password"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Password updated"})
+}
