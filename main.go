@@ -30,6 +30,8 @@ func main() {
 	// Auto migrate User and Post models
 	db.DB.AutoMigrate(&models.User{}, &models.Post{})
 	db.DB.AutoMigrate(&models.Follow{})
+	db.DB.AutoMigrate(&models.Vote{})
+
 
 
 	// Public routes
@@ -62,6 +64,12 @@ func main() {
 	follow.Delete("/:id", handlers.UnfollowUser)
 	follow.Get("/followers/:id", handlers.GetFollowers)
 	follow.Get("/following/:id", handlers.GetFollowing)
+
+	// Protected routes - vote group with JWT middleware
+	vote := app.Group("/votes", middleware.RequireAuth)
+	vote.Post("/:id", handlers.VotePost)
+	vote.Get("/:id/score", handlers.GetVoteScore)
+
 
 	// Start server
 	log.Fatal(app.Listen(":3000"))
