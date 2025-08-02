@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"time"
 
 	db "github.com/am4rknvl/local-micro-blogging-service.git/internal/database"
@@ -40,13 +41,35 @@ func CreatePost(c *fiber.Ctx) error {
 	return c.Status(201).JSON(post)
 }
 
-// Get all posts
 func GetPosts(c *fiber.Ctx) error {
+	// Query params
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 10)
+	search := c.Query("search", "")
+
+	if page < 1 {
+		page = 1
+	}
+
+	offset := (page - 1) * limit
+
 	var posts []models.Post
-	if err := db.DB.Order("created_at desc").Find(&posts).Error; err != nil {
+	query := db.DB.Model(&models.Post{})
+
+	if search != "" {
+		// Basic LIKE search on title and content
+		query = query.Where("title ILIKE ? OR content ILIKE ?", "%"+search+"%", "%"+search+"%")
+	}
+
+	if err := query.Order("created_at DESC").Limit(limit).Offset(offset).Find(&posts).Error; err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Could not fetch posts"})
 	}
-	return c.JSON(posts)
+
+	return c.JSON(fiber.Map{
+		"page":  page,
+		"limit": limit,
+		"posts": posts,
+	})
 }
 
 // Get post by ID
@@ -59,28 +82,20 @@ func GetPost(c *fiber.Ctx) error {
 	return c.JSON(post)
 }
 
-// Update post (PUT = full replace)
 func UpdatePost(c *fiber.Ctx) error {
-	id := c.Params("id")
+	postID := c.Params("id")
+	userID := c.Locals("userID").(string)
 
 	var post models.Post
-	if err := db.DB.First(&post, "id = ?", id).Error; err != nil {
+	if err := db.DB.First(&post, postID).Error; err != nil {
 		return c.Status(404).JSON(fiber.Map{"error": "Post not found"})
 	}
 
-	var input models.Post
-	if err := c.BodyParser(&input); err != nil {
-		return c.Status(400).JSON(fiber.Map{"error": "Invalid input"})
+	if fmt.Sprintf("%v", post.UserID) != userID {
+		return c.Status(403).JSON(fiber.Map{"error": "Unauthorized"})
 	}
 
-	post.Title = input.Title
-	post.Content = input.Content
-	post.UpdatedAt = time.Now()
-
-	if err := db.DB.Save(&post).Error; err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Failed to update post"})
-	}
-
+	// ... update logic
 	return c.JSON(post)
 }
 
