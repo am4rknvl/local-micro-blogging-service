@@ -43,8 +43,8 @@ Think of it as a lean, hacker-friendly Twitter clone with core features, scalabl
 
 ```bash
 # 1. Clone the repo
-git clone https://github.com/yourusername/microblogly.git
-cd microblogly
+git clone https://github.com/am4rkncl/local-micro-blogging-service.git
+cd local-micro-blogging service
 
 # 2. Setup .env
 cp .env.example .env  # Fill in your DB_URL and JWT_SECRET
