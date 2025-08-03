@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/am4rknvl/local-micro-blogging-service.git/internal/models"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
@@ -19,8 +18,11 @@ func Connect() {
 	}
 	DB = db
 
+	// Enable UUID extension for PostgreSQL
+	DB.Exec("CREATE EXTENSION IF NOT EXISTS \"uuid-ossp\"")
+
 	// Auto-migrate the database schema
-	DB.AutoMigrate(&models.Post{})
+	// Note: Models will be migrated in main.go to avoid import cycles
 
 	fmt.Println("Connected to microblog!")
 }

@@ -8,6 +8,8 @@ import (
 	"github.com/am4rknvl/local-micro-blogging-service.git/internal/handlers"
 	"github.com/am4rknvl/local-micro-blogging-service.git/internal/middleware"
 	"github.com/am4rknvl/local-micro-blogging-service.git/internal/models"
+	"github.com/am4rknvl/local-micro-blogging-service.git/internal/ws"
+	"github.com/am4rknvl/local-micro-blogging-service.git/jobs"
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 )
@@ -32,8 +34,14 @@ func main() {
 	db.DB.AutoMigrate(&models.Follow{})
 	db.DB.AutoMigrate(&models.Vote{})
 	db.DB.AutoMigrate(&models.Comment{})
+	db.DB.AutoMigrate(&models.Message{})
 
-
+	// Get the underlying sql.DB for background jobs
+	sqlDB, err := db.DB.DB()
+	if err != nil {
+		log.Fatal("Failed to get underlying sql.DB:", err)
+	}
+	jobs.StartAutoDeleteJob(sqlDB)
 
 	// Public routes
 	app.Post("/signup", handlers.Signup)
@@ -74,13 +82,31 @@ func main() {
 	// Protected routes - comment group with JWT middleware
 	comment := app.Group("/posts/:id/comments", middleware.RequireAuth)
 
-comment.Post("/", handlers.CreateComment)
-comment.Get("/", handlers.GetComments)
-comment.Patch("/:commentId", handlers.UpdateComment)
-comment.Delete("/:commentId", handlers.DeleteComment)
+	comment.Post("/", handlers.CreateComment)
+	comment.Get("/", handlers.GetComments)
+	comment.Patch("/:commentId", handlers.UpdateComment)
+	comment.Delete("/:commentId", handlers.DeleteComment)
 
+	// Protected routes - messages group with JWT middleware
+	messages := app.Group("/conversations/:id/messages", middleware.RequireAuth)
+	messages.Post("/", handlers.SendMessage)
+	messages.Get("/", handlers.GetMessages)
 
+	app.Post("/admin/delete-old", func(c *fiber.Ctx) error {
+		if err := jobs.DeleteOldMessages(sqlDB); err != nil {
+			return c.Status(500).SendString("Failed to delete old messages")
+		}
+		return c.SendString("Old unsaved messages deleted manually")
+	})
 
+	app.Patch("/messages/:id/save", handlers.SaveMessage(sqlDB))
+
+	app.Get("/ws/chat/:conversationID", handlers.WebSocketHandler())
+
+	// Start WebSocket manager
+	go ws.ManagerInstance.Run()
+
+	jobs.StartMessageCleanupJob()
 	// Start server
 	log.Fatal(app.Listen(":3000"))
 }
