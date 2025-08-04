@@ -120,10 +120,9 @@ func main() {
 
 	app.Get("/friend-requests", handlers.GetFriendRequests)
 	app.Get("/friends", handlers.GetFriendTree)
+	app.Get("/friend-tree", handlers.GetFriendTree)
 
 
-	// Swagger documentation endpoint (commented out due to dependency issues)
-	// app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Start WebSocket manager
 	go ws.ManagerInstance.Run()

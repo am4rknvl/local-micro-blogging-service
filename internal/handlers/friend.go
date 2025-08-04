@@ -1,12 +1,14 @@
 package handlers
 
 import (
+	"log"
+
 	db "github.com/am4rknvl/local-micro-blogging-service.git/internal/database"
 	"github.com/gofiber/fiber/v2"
 )
 
 func SendFriendRequest(c *fiber.Ctx) error {
-	senderID := c.Get("X-User-ID")
+	senderID := c.Get("X-User-ID") // adjust if you use middleware Locals("userID")
 
 	var payload struct {
 		ReceiverID string `json:"receiver_id"`
@@ -38,6 +40,7 @@ func RespondToFriendRequest(c *fiber.Ctx) error {
 		SenderID   string `gorm:"column:sender_id"`
 		ReceiverID string `gorm:"column:receiver_id"`
 	}
+
 	err := db.DB.Table("friend_requests").Where("id = ?", payload.RequestID).First(&friendRequest).Error
 	if err != nil {
 		return fiber.NewError(fiber.StatusNotFound, "Request not found")
@@ -47,7 +50,6 @@ func RespondToFriendRequest(c *fiber.Ctx) error {
 	receiverID := friendRequest.ReceiverID
 
 	if payload.Action == "accept" {
-		// Accept the request
 		_ = db.DB.Exec(`UPDATE friend_requests SET status='accepted' WHERE id=?`, payload.RequestID)
 		_ = db.DB.Exec(`INSERT INTO friends (user1_id, user2_id) VALUES (?, ?)`, senderID, receiverID)
 
@@ -71,20 +73,19 @@ func RespondToFriendRequest(c *fiber.Ctx) error {
 		return c.JSON(fiber.Map{"message": "Friend request accepted"})
 	}
 
-	// If rejected, just update status — NO follow logic
+	// Rejected path, just update status
 	_ = db.DB.Exec(`UPDATE friend_requests SET status='rejected' WHERE id=?`, payload.RequestID)
 	return c.JSON(fiber.Map{"message": "Friend request rejected"})
 }
-
 
 func GetFriendRequests(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(string)
 
 	type FriendRequestInfo struct {
-		ID         int    `json:"id"`
-		SenderID   string `json:"sender_id"`
-		Username   string `json:"username"`
-		Avatar     string `json:"avatar"` // optional
+		ID          int    `json:"id"`
+		SenderID    string `json:"sender_id"`
+		Username    string `json:"username"`
+		Avatar      string `json:"avatar"`
 		RequestedAt string `json:"created_at"`
 	}
 
@@ -104,43 +105,91 @@ func GetFriendRequests(c *fiber.Ctx) error {
 	return c.JSON(requests)
 }
 
-
 func GetFriendTree(c *fiber.Ctx) error {
 	userID := c.Locals("userID").(string)
 
-	type UserNode struct {
-		ID       string     `json:"id"`
-		Username string     `json:"username"`
-		Avatar   string     `json:"avatar"`
-		Friends  []UserNode `json:"friends,omitempty"` // recursive 🌳
-	}
-
-	var direct []UserNode
-	err := db.DB.Raw(`
+	query := `
 		SELECT u.id, u.username, u.avatar
-		FROM friends f
-		JOIN users u ON (u.id = f.user1_id OR u.id = f.user2_id)
-		WHERE (f.user1_id = ? OR f.user2_id = ?) AND u.id != ?
-	`, userID, userID, userID).Scan(&direct).Error
+		FROM follows f1
+		JOIN follows f2 ON f1.follower_id = f2.following_id AND f1.following_id = f2.follower_id
+		JOIN users u ON u.id = f1.following_id
+		WHERE f1.follower_id = ?
+	`
 
+	rows, err := db.DB.Raw(query, userID).Rows()
 	if err != nil {
-		return fiber.NewError(fiber.StatusInternalServerError, "Failed to get friends")
+		return c.Status(500).JSON(fiber.Map{"error": "DB error"})
+	}
+	defer rows.Close()
+
+	friendTree := []fiber.Map{}
+
+	for rows.Next() {
+		var friendID, friendUsername, friendAvatar string
+		if err := rows.Scan(&friendID, &friendUsername, &friendAvatar); err != nil {
+			continue
+		}
+
+		mutualRows, err := db.DB.Raw(query, friendID).Rows()
+		if err != nil {
+			log.Println("mutuals query error:", err)
+			continue
+		}
+
+		var mutuals []fiber.Map
+		for mutualRows.Next() {
+			var mid, mname, mavatar string
+			if err := mutualRows.Scan(&mid, &mname, &mavatar); err == nil && mid != userID {
+				mutuals = append(mutuals, fiber.Map{
+					"id":       mid,
+					"username": mname,
+					"avatar":   mavatar,
+				})
+			}
+		}
+		mutualRows.Close()
+
+		friendTree = append(friendTree, fiber.Map{
+			"id":       friendID,
+			"username": friendUsername,
+			"avatar":   friendAvatar,
+			"mutuals":  mutuals,
+		})
 	}
 
-	// Build tree manually (second-degree layer only to keep sane)
-	for i := range direct {
-		friendID := direct[i].ID
+	return c.JSON(fiber.Map{
+		"user":    userID,
+		"friends": friendTree,
+	})
+}
 
-		var second []UserNode
-		_ = db.DB.Raw(`
-			SELECT u.id, u.username, u.avatar
-			FROM friends f
-			JOIN users u ON (u.id = f.user1_id OR u.id = f.user2_id)
-			WHERE (f.user1_id = ? OR f.user2_id = ?) AND u.id != ?
-		`, friendID, friendID, friendID).Scan(&second)
+func GetFriends(c *fiber.Ctx) error {
+	userID := c.Locals("userID").(string)
 
-		direct[i].Friends = second
+	query := `
+		SELECT u.id, u.username, u.avatar
+		FROM follows f1
+		JOIN follows f2 ON f1.follower_id = f2.following_id AND f1.following_id = f2.follower_id
+		JOIN users u ON u.id = f1.following_id
+		WHERE f1.follower_id = ?
+	`
+
+	rows, err := db.DB.Raw(query, userID).Rows()
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "DB error"})
 	}
+	defer rows.Close()
 
-	return c.JSON(direct)
+	var friends []fiber.Map
+	for rows.Next() {
+		var id, username, avatar string
+		if err := rows.Scan(&id, &username, &avatar); err == nil {
+			friends = append(friends, fiber.Map{
+				"id":       id,
+				"username": username,
+				"avatar":   avatar,
+			})
+		}
+	}
+	return c.JSON(fiber.Map{"friends": friends})
 }
