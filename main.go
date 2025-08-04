@@ -1,3 +1,9 @@
+// @title Social Network API
+// @version 1.0
+// @description This is a microblogging and social networking API.
+// @host localhost:8080
+// @BasePath /
+
 package main
 
 import (
@@ -10,6 +16,7 @@ import (
 	"github.com/am4rknvl/local-micro-blogging-service.git/internal/models"
 	"github.com/am4rknvl/local-micro-blogging-service.git/internal/ws"
 	"github.com/am4rknvl/local-micro-blogging-service.git/jobs"
+
 	"github.com/gofiber/fiber/v2"
 	"github.com/joho/godotenv"
 )
@@ -29,12 +36,15 @@ func main() {
 	app := fiber.New()
 	db.Connect()
 
-	// Auto migrate User and Post models
+	// Auto migrate all models
 	db.DB.AutoMigrate(&models.User{}, &models.Post{})
 	db.DB.AutoMigrate(&models.Follow{})
 	db.DB.AutoMigrate(&models.Vote{})
 	db.DB.AutoMigrate(&models.Comment{})
 	db.DB.AutoMigrate(&models.Message{})
+	db.DB.AutoMigrate(&models.Friend{})
+	db.DB.AutoMigrate(&models.Notification{})
+
 
 	// Get the underlying sql.DB for background jobs
 	sqlDB, err := db.DB.DB()
@@ -102,6 +112,18 @@ func main() {
 	app.Patch("/messages/:id/save", handlers.SaveMessage(sqlDB))
 
 	app.Get("/ws/chat/:conversationID", handlers.WebSocketHandler())
+
+	app.Post("/friend-request", handlers.SendFriendRequest)
+	app.Post("/respond-request", handlers.RespondToFriendRequest)
+	app.Get("/search", handlers.SearchUsers)
+	app.Get("/trending", handlers.TrendingPosts)
+
+	app.Get("/friend-requests", handlers.GetFriendRequests)
+	app.Get("/friends", handlers.GetFriendTree)
+
+
+	// Swagger documentation endpoint (commented out due to dependency issues)
+	// app.Get("/swagger/*", swagger.HandlerDefault)
 
 	// Start WebSocket manager
 	go ws.ManagerInstance.Run()

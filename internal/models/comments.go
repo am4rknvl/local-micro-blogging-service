@@ -13,4 +13,12 @@ type Comment struct {
 	Content   string    `gorm:"type:text;not null"`
 	CreatedAt time.Time
 	UpdatedAt time.Time
+
+	User struct {
+		ID       uuid.UUID `json:"id"`
+		Username string    `json:"username"`
+		Avatar   string    `json:"avatar"`
+	} `json:"user"`
 }
+
+

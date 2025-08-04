@@ -78,7 +78,7 @@ func VotePost(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"message": "Vote updated"})
 }
 
-// GetVoteScore returns the net vote score (upvotes - downvotes) for a post
+
 func GetVoteScore(c *fiber.Ctx) error {
 	postID := c.Params("id")
 	pid, err := uuid.Parse(postID)
